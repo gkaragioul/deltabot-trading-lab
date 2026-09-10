@@ -1,5 +1,30 @@
 # Verification — 10 September 2026
 
+## Public order-book recorder and recorded replay
+
+All **80 tests pass** after adding Coinbase public level2 recording and archive
+replay. The addition is based on the official protocol reviewed alongside
+Coinbase's SDK, Freqtrade, Hummingbot and Backtesting.py. No external package or
+framework code was installed/copied. Details and primary sources are in
+[TOOLS-AND-MARKET-DATA.md](TOOLS-AND-MARKET-DATA.md).
+
+A public 20-second check received 1,004 messages and recorded nine snapshots
+without errors/reconnections. A later background check showed a fresh feed,
+2,687 received messages and 30 new samples. Actual archived BTC, ETH and SOL
+depth supported modeled 5-USDC sizing; immediate round-trip modeled costs were
+2.57–2.60% including actual captured taker rate and adverse-price assumptions.
+The first five-minute replay correctly reported sparse book coverage, zero
+qualifying orders and no profitability conclusion.
+
+Independent review identified size-cap exhaustion before seven-day retention and
+freshness checks that ignored the underlying exchange time. Size-based eviction
+and original-timestamp validation now have passing regressions. Final bounded
+review found no remaining material issue in these fixes or archive-backed replay.
+Graceful recorder stop released its OS lock; resume and relaunch preserved the
+archive and started a new connection epoch. Daily continuation documentation now
+includes recorder health and fresh recorded-book replay. The two paper bots stay
+separate from this public recorder. No live orders or transfers were submitted.
+
 ## Research and forward-comparison update
 
 The research upgrade passes **74 tests**. New regressions cover disjoint research

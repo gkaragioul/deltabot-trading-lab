@@ -48,7 +48,7 @@ export async function collectDataset(api,c,{days=14,count=8,end=Math.floor((Date
 // Binary search ensures a decision can only inspect fully closed candles.
 function before(rows,seconds){let lo=0,hi=rows.length;while(lo<hi){const mid=(lo+hi)>>>1;if(rows[mid].start+60<=seconds)lo=mid+1;else hi=mid;}return lo;}
 
-export async function replayDataset(data,c,{start=data.start,end=data.end,decisionFn,spreadBps=10,latencyBars=0,onTick,keepEvents=true}={}){
+export async function replayDataset(data,c,{start=data.start,end=data.end,decisionFn,spreadBps=10,latencyBars=0,onTick,keepEvents=true,bookSource}={}){
   settings(c);
   if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<data.start||end>data.end||start>=end||start%60||end%60||!Number.isInteger(latencyBars)||latencyBars<0||latencyBars>5||!Number.isFinite(spreadBps)||spreadBps<=0)throw new Error('INVALID_REPLAY_WINDOW');
   const indexes=new Map(data.products.map(p=>[p.product_id,new Map(data.bars[p.product_id].map(b=>[b.start,b]))]));
@@ -58,6 +58,7 @@ export async function replayDataset(data,c,{start=data.start,end=data.end,decisi
   const market={fee:async()=>data.feeRate,discover:async()=>data.products,product:async id=>data.products.find(p=>p.product_id===id),
     candles:async id=>{const rows=data.bars[id],i=before(rows,clock/1000-latencyBars*60);const tail=rows.slice(Math.max(0,i-60),i);if(!tail.length||clock/1000-tail.at(-1).start-60>120+latencyBars*60)throw new Error('REPLAY_STALE_CANDLES');return tail;},
     book:async id=>{
+      if(bookSource){const book=await bookSource.at(id,clock,c.maxBookAgeSeconds*1000);if(book.id!==id||book.at>clock||clock-book.at>c.maxBookAgeSeconds*1000)throw new Error('INVALID_RECORDED_BOOK_TIME');return book;}
       const bar=indexes.get(id).get(clock/1000),previous=indexes.get(id).get(clock/1000-60);
       if(!bar||!previous||previous.volume<=0)throw new Error('REPLAY_CANDLE_GAP');
       // A liquidity proxy using only prior volume, not future intrabar volume.
@@ -80,7 +81,7 @@ export async function replayDataset(data,c,{start=data.start,end=data.end,decisi
     else{const cost=positionCosts.get(e.product);if(cost!==undefined){tradeReturns.push(Number(e.value)-Number(e.fee)-cost);positionCosts.delete(e.product);}}
   }
   const wins=tradeReturns.filter(x=>x>0),losses=tradeReturns.filter(x=>x<0),grossWins=wins.reduce((a,b)=>a+b,0),grossLosses=-losses.reduce((a,b)=>a+b,0);
-  return {start,end,hours:(end-start)/3600,startEquity:String(c.activeUsd),endEquity:equity(s),netChange:Number(equity(s))-c.activeUsd,returnPct:(Number(equity(s))/c.activeUsd-1)*100,
+  return {start,end,bookModel:bookSource?'recorded':'modeled',hours:(end-start)/3600,startEquity:String(c.activeUsd),endEquity:equity(s),netChange:Number(equity(s))-c.activeUsd,returnPct:(Number(equity(s))/c.activeUsd-1)*100,
     fees:s.fees,orders:s.orders,buys:s.buys,sells:s.sells,closedTrades:tradeReturns.length,winRate:tradeReturns.length?wins.length/tradeReturns.length:0,
     profitFactor:grossLosses>0?grossWins/grossLosses:null,maxDrawdown,maxDrawdownPct:maxDrawdown/c.activeUsd*100,
     ordersPerDay:s.orders/((end-start)/86400),openPositions:Object.keys(s.positions).length,halt:s.paused,

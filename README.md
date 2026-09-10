@@ -131,6 +131,10 @@ The [research protocol and results](docs/COINBASE-RESEARCH.md) document the new
 forward challenger. No candidate passed qualification. Run
 `node src/cb/research-cli.mjs status` for the latest research report.
 
+[External tool assessment and public book recorder](docs/TOOLS-AND-MARKET-DATA.md)
+document the next improvement: actual Coinbase depth sampling and recorded-book
+replay. The recorder runs independently and cannot place trades.
+
 [Verification record](docs/VERIFICATION.md) documents tests, real read/preview
 checks, replay outcomes and limitations. Coinbase uses native crypto, fetch and
 SQLite; this addition installs no new dependency.

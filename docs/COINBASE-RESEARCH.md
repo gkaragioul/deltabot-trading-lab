@@ -121,5 +121,18 @@ Continue improving reliability and registering bounded new hypotheses while
 collecting genuinely fresh forward evidence. No result currently supports live
 activation or the requested 10x/100x outcome.
 
+## Recorded-depth continuation
+
+The public book recorder and recorded-depth replay described in
+[TOOLS-AND-MARKET-DATA.md](TOOLS-AND-MARKET-DATA.md) now supplement this research.
+Daily follow-up should inspect recorder health as well as both paper workers,
+honor its durable stop control, and prefer newly recorded books for execution
+validation. `node src/cb/replay-recorded.mjs --minutes 1440` evaluates the latest
+closed day of candles against available prior book observations. Check coverage;
+do not claim a complete replay when the recorder was offline or history was
+trimmed. Repeated windows are still overlapping evidence, not new independent
+tests. Neither recording depth nor obtaining a profitable short replay authorizes
+or establishes live profitability.
+
 Official references: [candle endpoint](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/products/get-product-candles)
 and [maker/taker fee rules](https://help.coinbase.com/en/coinbase/trading-and-funding/advanced-trade/advanced-trade-fees).

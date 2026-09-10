@@ -43,3 +43,9 @@ test('collector resumes cached chunks without repeated API calls and records mis
  const api={products:async()=>[product],fees:async()=>({fee_tier:{taker_fee_rate:'0.012'}}),candles:async(id,start,end)=>{calls++;return {candles:[{start:String(start),open:'10',high:'10',low:'10',close:'10',volume:'1'}]};}};
  try{const opts={days:2,count:1,end:10*86400,cacheDir:dir};const a=await collectDataset(api,settings(),opts);const before=calls;const b=await collectDataset(api,settings(),opts);assert.equal(calls,before);assert.equal(a.fingerprint,b.fingerprint);assert.ok(a.coverage[0].fraction<0.01);}finally{rmSync(dir,{recursive:true,force:true});}
 });
+
+test('measured-book replay requests past observations and cannot fall back to invented liquidity',async()=>{
+ const data=dataset();let calls=0;
+ const r=await replayDataset(data,settings(),{decisionFn:()=>({enter:true,reason:'fixture'}),bookSource:{at:(id,time)=>{calls++;assert.equal(id,'TEST-USDC');assert.ok(time>=data.start*1000&&time<data.end*1000);throw new Error('NO_RECORDED_BOOK');}}});
+ assert.ok(calls>0);assert.equal(r.orders,0);assert.equal(r.bookModel,'recorded');assert.ok(r.errors>0);
+});
