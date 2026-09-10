@@ -1,5 +1,20 @@
 # Verification — 10 September 2026
 
+## Coinbase account connection
+
+At 10:44:32 UTC, the new read-only connection check authenticated successfully
+against Coinbase Advanced Trade. The server reported View=true, Trade=true,
+Transfer=false. Seven accounts were paginated; nonzero available balances were
+50.5268 USDC and 0.056855257 SOL, both with zero held amounts.
+
+The downloaded key matched the identifier supplied by the user. Its ECDSA
+credential was moved from Downloads to a user-only Windows ACL directory outside
+Git, and its path was saved in ignored local configuration. No secret values
+were emitted. Offline tests verify the actual JWT signature and request binding,
+GET-only endpoint restrictions, pagination completeness/loop rejection, and
+safe HTTP failures. Live checks were account/permission reads only. Coinbase
+automated execution is not implemented or activated by this connection module.
+
 ## Jupiter setup update
 
 Item 2 now uses Jupiter's documented keyless access, enabled through the ignored

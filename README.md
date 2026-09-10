@@ -7,6 +7,27 @@ has been established and simulated results are not earnings.
 
 ## Start and inspect
 
+### Coinbase account connection
+
+The user has switched the intended funding route to Coinbase. A separate,
+read-only connection check is now available with `node src/coinbase.mjs`.
+It loads `COINBASE_KEY_FILE` from the ignored `.env.local`, signs short-lived
+ES256 request tokens, verifies API permissions, and reads all account pages.
+It writes a balance/permission snapshot to ignored `runtime/coinbase/connection.json`.
+The credential is stored outside this repository under the current user's local
+application-data directory with Windows access restricted to that user. The
+downloaded copy was moved there; no secret is printed or committed.
+
+This checker does not submit orders or transfers. The existing Solana/Jupiter
+engine has not been converted into a Coinbase execution adapter. The Coinbase
+key has View and Trade permissions for Primary and no Transfer permission;
+the API key itself has no $20 budget cap. Authenticated connection success is
+not validation of automated trading or profitability. No funds were moved.
+
+Authentication reference: https://docs.cdp.coinbase.com/coinbase-app/authentication-authorization/api-key-authentication
+
+### Solana paper experiment
+
 Requires Node 24 on Windows or Linux. From this directory:
 
 This machine's `.env.local` now selects the public, keyless Solana Vibe Station
