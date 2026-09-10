@@ -1,5 +1,73 @@
 # Verification — 10 September 2026
 
+## Coinbase automation build
+
+The current build implements the separate Coinbase engine in `src/cb`. It runs
+paper mode by default; the live adapter is implemented but real fills have not
+been exercised. No actual trade or transfer was submitted during this work.
+Older sections below preserve historical Solana/connection milestones.
+
+All **68 tests pass**, including 25 new Coinbase automation tests and the four
+earlier Coinbase connection tests. Node syntax checks for all source/tests and
+PowerShell parser checks for the three Coinbase launchers pass. Coinbase uses
+native crypto/fetch/SQLite and adds no dependency.
+
+Independent review findings were reproduced and addressed with regressions:
+confirmed fills retained despite account mismatch/outage; protective exits
+preserve baseline holdings; fee outages block buys without blocking all exits;
+freshness and shutdown controls rechecked after asynchronous work; conservative
+UTC rollover before settlement; a shared live-worker lock across runtimes;
+read-only recovery for stopped ledgers with uncertain orders; throttled rejected
+and zero-filled exits. The final focused review found no remaining material
+defect in the last recovery/rollover changes. This is not exchange certification.
+
+At 11:02:42 UTC, the real doctor passed authentication, permissions, account reads,
+fee retrieval, product discovery, order-book validation, 60 closed candles and a
+nonexecuting BTC-USDC order preview. The preview reported total 4.98488218998 USDC,
+commission 0.05910927498 and no errors. Fee tier Intro 1 quoted taker 0.012.
+View=true, Trade=true, Transfer=false. Available balances were 50.5268 USDC and
+0.056855257 SOL. The product listing paginated 930 rows; screening selected 20.
+
+At 11:14:52 UTC, the final 24-hour replay produced:
+
+| Measure | Historical simulation |
+| --- | ---: |
+| Starting equity | 20 USDC |
+| Ending equity | 15.8995750137 USDC |
+| Net change | -4.1004249863 USDC |
+| Orders / buys / sells | 56 / 28 / 28 |
+| Modeled commissions | 3.29996578 USDC |
+| Remaining positions | 0 |
+
+Products were BTC, ETH, ZEC, XRP, SOL, HYPE, VVV and NEAR against USDC. The replay
+uses the current product universe and fee, closed candles for decisions, and the
+next candle's open with assumed 10-bps spread and adverse price adjustment for
+fills. Liquidity is assumed, not reconstructed; minute sampling misses intraminute
+losses and execution competition. Current product selection has survivorship
+bias. It crosses two UTC dates, each with its own entry loss threshold. Exits may
+exceed those thresholds. The sample was not used to optimize settings.
+
+An earlier replay at 11:07:35 UTC showed 58 orders, ending equity 15.8121706637 and
+3.41821003 commissions. Both samples lose money. Neither establishes a profitable
+strategy, and the outcome does not support repeated 10x/100x return claims.
+The latest full events and assumptions are in ignored `runtime/coinbase/backtest.json`.
+
+The Coinbase paper supervisor and worker started in the background and completed
+live-data scans. The observed dashboard reported no qualifying purchases at that
+point. A stale-candle candidate was rejected and subsequently healthy scans were
+observed. Graceful stop released both worker and supervisor locks; `resume` and
+the launcher restarted the existing ledger. At 11:17:11 UTC, the restarted worker
+reported eight total scans, zero buys/sells, no pending order and no current error.
+The legacy Solana worker and supervisor
+were stopped, and both legacy locks were verified released. No Windows sleep or
+login settings were changed. Paper operation requires this computer awake/online.
+
+Live submission, actual partial fills, product alias behavior and exchange-side
+settlement timing remain validated by fixtures only. The API key itself does not
+enforce the software's 20-USDC budget. A new runtime must not be used to bypass
+an existing halted ledger or forget bot-owned holdings. External account changes
+require investigation; recovery never silently treats them as earned money.
+
 ## Coinbase account connection
 
 At 10:44:32 UTC, the new read-only connection check authenticated successfully
@@ -13,7 +81,8 @@ Git, and its path was saved in ignored local configuration. No secret values
 were emitted. Offline tests verify the actual JWT signature and request binding,
 GET-only endpoint restrictions, pagination completeness/loop rejection, and
 safe HTTP failures. Live checks were account/permission reads only. Coinbase
-automated execution is not implemented or activated by this connection module.
+automated execution was not implemented by that earlier connection-only module;
+the separate adapter described above now exists, with live mode inactive.
 
 ## Jupiter setup update
 

@@ -1,211 +1,148 @@
-# DeltaBot Memecoin Lab
+# DeltaBot Coinbase Trading Lab
 
-An isolated Solana momentum/pullback experiment. It scans real markets and paper
-trades using live swap quotes. Optional live execution is implemented behind an
-explicit local activation and dedicated-wallet setup. No strategy profitability
-has been established and simulated results are not earnings.
+Coinbase spot-market scanner, paper trader and manually activated live-order
+adapter. Funds stay on Coinbase. The default worker simulates trades using live
+order books, the account's taker fee and adverse execution assumptions.
+
+**No profitable edge has been established.** The initial 24-hour, eight-market
+replay made 58 simulated orders and lost 4.1878 USDC from 20 USDC, including 3.4182
+USDC of modeled commissions. The measured account fee was 1.2% per taker side.
+Higher activity is not a return target; repeated 10x/100x returns are not an
+implemented or supported claim. Historical simulation is not a payment receipt.
 
 ## Start and inspect
 
-### Coinbase account connection
-
-The user has switched the intended funding route to Coinbase. A separate,
-read-only connection check is now available with `node src/coinbase.mjs`.
-It loads `COINBASE_KEY_FILE` from the ignored `.env.local`, signs short-lived
-ES256 request tokens, verifies API permissions, and reads all account pages.
-It writes a balance/permission snapshot to ignored `runtime/coinbase/connection.json`.
-The credential is stored outside this repository under the current user's local
-application-data directory with Windows access restricted to that user. The
-downloaded copy was moved there; no secret is printed or committed.
-
-This checker does not submit orders or transfers. The existing Solana/Jupiter
-engine has not been converted into a Coinbase execution adapter. The Coinbase
-key has View and Trade permissions for Primary and no Transfer permission;
-the API key itself has no $20 budget cap. Authenticated connection success is
-not validation of automated trading or profitability. No funds were moved.
-
-Authentication reference: https://docs.cdp.coinbase.com/coinbase-app/authentication-authorization/api-key-authentication
-
-### Solana paper experiment
-
-Requires Node 24 on Windows or Linux. From this directory:
-
-This machine's `.env.local` now selects the public, keyless Solana Vibe Station
-RPC. The CLI loads that file automatically, including when launched by the
-paper supervisor. Explicit process environment values take precedence. The file
-is ignored by Git; it contains the public RPC URL and `JUPITER_KEYLESS=1`. Recreate this
-setting on another machine with `SOLANA_RPC_URL=https://public.rpc.solanavibestation.com`.
-No account or paid subscription was created. As a shared free endpoint, it can
-still have outages or rate limits; failures continue to block affected entries.
+Requires Node 24. The local Coinbase key is configured through `COINBASE_KEY_FILE`
+in ignored `.env.local`. Its private file remains outside Git with user-only
+Windows permissions. Never put private key material in these documents.
 
 ```powershell
-npm ci --ignore-scripts
 npm test
-node src/cli.mjs doctor
-node src/cli.mjs run --cycles 1
-./Start-Paper.ps1
-node src/cli.mjs status
+node src/cb/cli.mjs doctor
+./Start-Coinbase-Paper.ps1
+node src/cb/cli.mjs status
 ```
 
-`Start-Paper.ps1` starts a hidden paper-only supervisor. It restarts workers that
-exit with an error, with a 10-second delay. It does not change Windows sleep
-settings, install a login task, or survive a machine reboot. The computer must
-remain awake and connected. After reboot, run the launcher again. The SQLite
-ledger resumes the existing experiment. A second worker is refused through an
-OS-managed named pipe on Windows or abstract socket on Linux.
+The doctor reads permissions, balances, fees, products and candles and requests
+a nonexecuting order preview. It does not place a trade. The current key has View
+and Trade permissions and no Transfer permission. Software limits are not
+restrictions enforced by the API key itself.
 
-On Linux, run `node src/supervisor.mjs` under your existing process manager.
-No hosted service or subscription is created by this project.
-
-Read `runtime/paper/STATUS.md` for a readable snapshot. Run `status` to refresh it
-and check whether a worker is actually alive. Runtime files are private local
-outputs, excluded from Git. Source code does not modify the existing DeltaBot
-payment utilities or read their credentials.
+Open [the paper dashboard](runtime/coinbase-paper/STATUS.md) for process health,
+signals, positions, commissions and profit/loss. `status` refreshes the snapshot.
+Worker logs and the SQLite event ledger are in the same ignored folder. The
+hidden supervisor restarts an unexpectedly failed paper worker. The computer must
+remain awake and online; it does not resume after reboot automatically.
 
 ## Controls
 
 ```powershell
-node src/cli.mjs pause
-node src/cli.mjs resume
-node src/cli.mjs flatten
-node src/cli.mjs stop
-node src/cli.mjs export
+node src/cb/cli.mjs pause
+node src/cb/cli.mjs resume
+node src/cb/cli.mjs flatten
+node src/cb/cli.mjs stop
+node src/cb/cli.mjs export
+node src/cb/cli.mjs backtest --hours 24 --products 8
 ```
 
-- **pause:** prevent new entries, continue managing existing exits.
-- **resume:** remove an operator pause. It cannot clear a risk halt or unresolved
-  transaction. If the worker has stopped, start it again after resume.
-- **flatten:** keep trying to sell all positions while preventing new entries.
-  An unavailable route is retained as an open position. Flatten is asynchronous.
-- **stop:** terminate after the current cycle; open positions remain held. Flatten
-  and verify zero positions before stopping if you want to exit everything.
-- **export:** write the event ledger to `runtime/paper/events.jsonl` for review.
+- `pause`: block new entries; keep managing existing exits.
+- `resume`: remove an operator control. Restart the launcher if stopped.
+- `flatten`: keep attempting sales of bot-owned positions and block new buys.
+  Verify zero positions before stopping; unavailable sales remain open.
+- `stop` or Ctrl+C: block subsequent submissions and finish the active work before
+  exit. Already submitted orders still need settlement. Held assets remain held,
+  with no automatic exit while the worker is stopped.
+- `export`: write event history to `events.jsonl`.
+- `backtest`: replay two to 48 hours across up to 20 currently eligible products;
+  save assumptions, results and events to `runtime/coinbase/backtest.json`.
 
-All commands accept `--mode paper|live`, `--runtime <directory>` and
-`--config <JSON-file>`. `run` also accepts `--cycles <positive integer>`.
-An existing runtime rejects mode or configuration changes. Use a new runtime
-for a new strategy experiment; do not reset a funded ledger to bypass a halt.
+Commands accept `--mode paper|live`, `--runtime <directory>` and
+`--config <JSON-file>`. Run also accepts `--cycles <positive integer>`.
+Configuration and mode are bound to the ledger. A live worker holds a shared OS
+lock independent of runtime or checkout. Do not create a new live ledger to
+bypass a halt or orphan an earlier bot position.
 
-## Initial strategy and budget
+For a stopped live ledger with a pending order, use
+`node src/cb/cli.mjs reconcile --mode live`. This command only reads Coinbase and
+updates the local ledger; it cannot submit orders. It preserves the stop control.
+If settlement is still unknown, it remains pending. Once reconciled, `resume`
+can remove the control, followed by explicit manual startup. Balance halts clear
+only if actual and expected balances match. External deposits, withdrawals or
+manual trades require investigation; the tool does not silently adopt them as P&L.
+Drawdown halts cannot be cleared by `resume` or reconciliation.
 
-The ledger starts with $20 active simulated funds and $80 reserve. Position size
-is at most $5, with at most two positions. A $10 peak-to-current drawdown pauses
-entries, including open losses. These are hard maximums in the configuration.
+## Strategy and limits
 
-Entry hypothesis: a token at least 30 minutes old, at least $50,000 liquidity and
-$5,000 five-minute volume, a buy/sell count ratio of 1.5 or higher, five-minute
-price growth between 2% and 30%, and a 1–8% pullback after observed growth. At
-least three observations spanning two minutes are required. These thresholds
-are unvalidated hypotheses, not optimized settings or an expected return.
+The default scan interval is 15 seconds, subject to API latency. Discovery selects
+up to 20 eligible USDC spot products by reported 24-hour volume. This is Coinbase's
+listed universe, not every newly launched memecoin. Closed one-minute candles
+feed an unvalidated hypothesis: five-minute momentum 0.6–8%, EMA5 above EMA20,
+and a 0.1–0.8% pullback from the recent high.
 
-Exits: 10% loss from full cost, 25% profit, 12% trailing decline after a profitable
-mark, or a 60-minute maximum holding period. Trades wait three seconds and obtain
-fresh quotes. Buy/sell transaction counts do not identify distinct traders and
-can be manipulated. A stop condition cannot guarantee a fill or limit losses.
+| Control | Default / hard maximum |
+| --- | --- |
+| Starting strategy budget | 20 USDC |
+| Cost per position including entry commission | 5 USDC |
+| Simultaneous positions | 2 |
+| Daily loss threshold for blocking entries | 2 USDC |
+| Peak drawdown threshold for blocking entries | 5 USDC |
+| Daily entry gate | 200 total submissions; necessary exits allowed |
+| Maximum spread / limit-price deviation | 30 / 30 basis points |
+| Modeled immediate round-trip cost ceiling | 3% |
+| Net stop / take-profit / trailing decline | 3.5% / 6% / 1.5% |
+| Maximum holding time / re-entry cooldown | 15 / 5 minutes |
 
-Discovery uses DEX Screener's latest profiles, a selective/promotional sample,
-not every Solana token and not a curated list of memecoins. Arbitrary token names
-are treated as data. `watchMints` can add explicit mint addresses. Candidates
-must use ordinary SPL tokens with no mint/freeze authority. Token-2022 tokens
-are excluded. The largest token account must hold at most 35% of supply; pool
-vaults are included, so this conservative check can reject legitimate markets.
-Missing holder data means no entry. These checks do not prove a token safe.
+Sizing and fill accounting use decimal fixed-point arithmetic. The daily order
+setting is a ceiling, not a quota; there may be no qualifying trades. Zero-filled
+or explicitly rejected live exits wait at least a minute before another attempt.
+Necessary exits can exceed the daily entry gate. Loss thresholds block new
+purchases but do not guarantee a maximum loss. Days use UTC; unpriced holdings
+remain included conservatively in the next day's loss baseline.
 
-## Quote and cost model
+The 3% cost ceiling accommodates the observed 1.2% taker fee per side plus modeled
+execution costs. Parameters were not optimized on the replay. The losing replay
+does not justify activating this strategy. USDC is valued at USD parity.
 
-This machine uses Jupiter Swap v2 through its official keyless access, enabled
-with `JUPITER_KEYLESS=1`. No account, API key, or paid plan is needed. Order
-requests are serialized at least 2.1 seconds apart, below the published keyless
-30 requests per 60-second window. This pacing is per worker, so other processes
-sharing the connection can still cause HTTP 429. Failed requests are surfaced;
-there is no automatic provider fallback. An optional `JUPITER_API_KEY` takes
-precedence and uses conservative 1.1-second spacing for the free tier.
+## Live adapter
 
-Without either setting, paper quotes use the public Raydium Trade API. Every fill records its
-provider. Changing providers can alter outcomes; use a new experiment to compare
-providers fairly. Route failures never become simulated successful trades.
+The adapter implements bounded immediate-or-cancel limit orders, mandatory
+previews, actual partial-fill/commission accounting and durable recovery. It saves
+a unique client order ID before one submission. An uncertain result stays pending
+across restarts and is never automatically submitted again. Do not delete pending
+state to get the bot moving; reconcile it against Coinbase first.
 
-Paper fills use the quoted minimum output at 1% slippage, then a further 0.5%
-adverse adjustment. The model deducts $0.35 per buy for assumed network/account
-costs and $0.02 per sell. Account creation costs are conservatively expensed and
-never recovered in the model. These are assumptions, not measured network fees.
-Entries require an estimated immediate round trip below both the configured 12%
-cost ceiling and the 10% stop-loss threshold, including these assumptions. USDC is valued at USD parity; a depeg invalidates
-this assumption. Paper fills cannot reproduce competition, liquidity removal,
-provider delays or all transaction failures. The first 48 hours are an operational
-trial, not proof of a profitable strategy.
+Preexisting holdings form a baseline and are not bot positions. Unrelated account
+changes pause entries. Protective exits require sufficient inventory above that
+baseline. Confirmed settlements are recorded even if balance checks fail; those
+discrepancies remain halted. Unavailable fees block buys while exits use a
+conservative estimate. Stale books, missing liquidity or API failures can prevent
+execution. Software stops require the worker and network to be healthy.
 
-## Live prerequisites and activation
+**Real-money fills have not been validated. Live trading is not running.**
+Manual activation is available through `Start-Coinbase-Live.ps1`, which requires
+typing `START20`. It enables both the process environment gate and explicit CLI
+activation flag for that session only. The paper supervisor cannot start it.
+Use `--mode live` for its status and controls. No transfers, borrowing or leverage.
 
-Live mode is **not funded or mainnet-fill validated**. An offline fixture verifies
-signing, preflight account checks, durable transaction intent, one submission,
-finalized chain accounting, failed fees, and uncertain outcomes. That does not
-establish that a specific live route will pass simulation or land successfully.
+## Verification and source layout
 
-Use a dedicated Solana wallet funded with USDC plus SOL worth **no more than $20
-combined**, leaving the rest of the $100 outside it. A practical initial composition
-is up to $18 USDC plus SOL for fees, while respecting that combined cap. The wallet
-must have at least 0.005 SOL; buys preserve that reserve. Initial funding is checked
-at the observed SOL price. Purchases can debit at most 0.003 SOL per transaction
-in addition to the $5 token input. No loans or leverage are supported.
+[Verification record](docs/VERIFICATION.md) documents tests, real read/preview
+checks, replay outcomes and limitations. Coinbase uses native crypto, fetch and
+SQLite; this addition installs no new dependency.
 
-Store the Solana CLI-format 64-byte keypair JSON outside the repository with
-access limited to your user. Never paste recovery material into a chat or commit
-it to Git. Set these in the local process environment:
+- `src/cb/api.mjs`: signed requests, endpoint restrictions, pagination and pacing.
+- `decimal.mjs`, `config.mjs`, `market.mjs`: arithmetic, validation and signals.
+- `execution.mjs`, `engine.mjs`: journaled orders, fills, exits and risk controls.
+- `cli.mjs`, `operations.mjs`, `supervisor.mjs`, `report.mjs`: process and controls.
+- `backtest.mjs`: historical replay with modeled liquidity, spread and fees.
 
-- `JUPITER_KEYLESS`: `1` for the official keyless connection (already configured),
-  or optionally `JUPITER_API_KEY` for a Jupiter Developer Platform API key.
-- `SOLANA_RPC_URL`: your HTTPS Solana RPC endpoint supporting account reads,
-  largest-account queries, transaction simulation and finalized transaction lookup.
-- `SOLANA_KEYPAIR_PATH`: absolute path to that dedicated keypair file.
-- `LIVE_TRADING`: `1` to explicitly activate real execution.
+The old Solana experiment is retained in [legacy documentation](docs/SOLANA-LEGACY.md).
+Its paper worker is stopped as a one-time migration. The Coinbase launcher does
+not control legacy workers subsequently started manually. Original npm scripts
+still refer to the legacy engine; use Coinbase commands above. Existing Solana
+dependency audit findings remain a legacy maintenance item; Coinbase does not
+import that SDK.
 
-Then run:
-
-```powershell
-node src/cli.mjs doctor --mode live
-node src/cli.mjs run --mode live
-```
-
-The paper supervisor never starts live mode. Live settings must be present on
-every restart. Use `--mode live` for status and controls. Live operation uses
-Jupiter v2's official order/execute endpoints. Only a single required wallet
-signer is supported; routes requiring additional signers are rejected. The bot
-simulates the transaction and checks intended token deltas, wallet authority,
-unrelated holdings and SOL debit before signing. Wallet trading/deposits outside
-the bot cause a balance mismatch and halt new activity.
-
-The transaction signature is committed before broadcasting. The execute response
-does not establish success; finalized chain balances do. An unknown transaction
-remains pending and blocks subsequent orders across restarts. There is deliberately
-no automatic replacement or command to discard that pending identity. Inspect the
-signature and reconcile the ledger before continuing. A failed transaction records
-the network fee and pauses for review. Token-account rent is part of measured SOL
-cash movement; reclaiming old account rent is not implemented.
-
-## Validation and limitations
-
-See `docs/VERIFICATION.md` for the latest observed results. The original public
-Solana endpoint returned HTTP 429 for `getTokenLargestAccounts`. The locally
-configured Solana Vibe Station endpoint subsequently passed all four doctor
-checks, including the 20 largest token accounts. Failed screening is still logged
-and rejected; the bot does not bypass unavailable data to create activity.
-
-`npm audit` currently reports four moderate findings in the web3.js dependency
-tree (via jayson/stream-json/uuid). The application uses native fetch for RPC and
-does not use jayson's streaming server. No incompatible forced downgrade or
-unreviewed dependency override was applied. This remains a dependency maintenance
-item before treating the live adapter as production-ready.
-
-## Official interfaces used
-
-- [DEX Screener API](https://docs.dexscreener.com/api/reference)
-- [Raydium Trade API](https://docs.raydium.io/sdk-api/trade-api)
-- [Jupiter Swap v2](https://developers.jup.ag/docs/swap/order-and-execute)
-- [Jupiter access and rate limits](https://developers.jup.ag/docs/portal/rate-limits)
-- [Solana RPC](https://solana.com/docs/rpc)
-
-`src/config.mjs` defines validated parameters; `strategy.mjs` holds the entry/exit
-hypothesis; `providers.mjs` reads public data; `engine.mjs` manages the experiment;
-`live.mjs` handles optional signing and reconciliation; `store.mjs` owns SQLite;
-`cli.mjs`, `operations.mjs` and `supervisor.mjs` provide local operation.
+Official interfaces: [authentication](https://docs.cdp.coinbase.com/coinbase-app/authentication-authorization/api-key-authentication),
+[create order](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/create-order),
+[get order](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/get-order).

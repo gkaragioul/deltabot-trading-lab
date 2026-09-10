@@ -9,6 +9,11 @@ const allowed = new Set([`${base}/accounts`, `${base}/key_permissions`]);
 
 export function createJwt(credentials, path, seconds = Math.floor(Date.now() / 1000)) {
   if (!allowed.has(path)) throw new Error('READ_ENDPOINT_NOT_ALLOWED');
+  return signCoinbaseRequest(credentials, 'GET', path, seconds);
+}
+
+export function signCoinbaseRequest(credentials, method, path, seconds = Math.floor(Date.now() / 1000)) {
+  if (!['GET', 'POST'].includes(method) || !/^\/api\/v3\/brokerage\/[a-zA-Z0-9_/-]+$/.test(path) || path.includes('..')) throw new Error('INVALID_REQUEST_TARGET');
   let key;
   try {
     if (typeof credentials.name !== 'string' || !/^organizations\/[^/\s]+\/apiKeys\/[^/\s]+$/.test(credentials.name)) throw new Error();
@@ -17,7 +22,7 @@ export function createJwt(credentials, path, seconds = Math.floor(Date.now() / 1
   } catch { throw new Error('INVALID_COINBASE_CREDENTIALS'); }
   const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
   const header = encode({ alg: 'ES256', typ: 'JWT', kid: credentials.name, nonce: randomBytes(16).toString('hex') });
-  const payload = encode({ sub: credentials.name, iss: 'cdp', nbf: seconds, exp: seconds + 120, uri: `GET api.coinbase.com${path}` });
+  const payload = encode({ sub: credentials.name, iss: 'cdp', nbf: seconds, exp: seconds + 120, uri: `${method} api.coinbase.com${path}` });
   const message = `${header}.${payload}`;
   return `${message}.${sign('sha256', Buffer.from(message), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url')}`;
 }
