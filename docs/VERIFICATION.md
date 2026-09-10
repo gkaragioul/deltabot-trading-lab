@@ -1,5 +1,21 @@
 # Verification — 10 September 2026
 
+## RPC setup update
+
+The user requested setup of item 1, the Solana data connection. Configured the
+officially documented public endpoint `https://public.rpc.solanavibestation.com`
+in this project's ignored `.env.local`. No account, API key or paid plan was
+needed. CLI startup loads it automatically; explicit environment overrides win.
+The running worker records only the RPC hostname, never query strings or secrets.
+
+All four doctor checks now pass: discovery (15 candidates in the observed
+snapshot), Raydium quote, Solana slot (445854055), and holder data (20 accounts).
+The earlier HTTP 429 issue is resolved in these checks with the replacement
+endpoint. This is observed functionality, not an uptime guarantee for a public
+shared service. The updated suite passes 36 tests, including environment loading
+and precedence. This setup does not activate live trading or resolve the separate
+dependency maintenance items below.
+
 ## Implemented and tested
 
 - 35 Node tests pass, including complete offline live signing/submission/settlement

@@ -8,8 +8,10 @@ import { Providers, safeError } from './providers.mjs';
 import { Engine } from './engine.mjs';
 import { LiveBroker } from './live.mjs';
 import { acquireLock, workerRunning, report } from './operations.mjs';
+import { loadLocalEnvironment } from './environment.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+loadLocalEnvironment(root);
 const args = process.argv.slice(2); const command = args.shift() ?? 'status';
 const options = {};
 while (args.length) {
@@ -35,7 +37,7 @@ function writeReport(running) {
 
 async function main() {
   if (command === 'doctor') {
-    const result = { mode, quoteProvider: data.source, checks: {}, liveConfigured: Boolean(process.env.JUPITER_API_KEY && process.env.SOLANA_RPC_URL && process.env.SOLANA_KEYPAIR_PATH && process.env.LIVE_TRADING === '1') };
+    const result = { mode, quoteProvider: data.source, rpcHost: new URL(data.rpcUrl).hostname, checks: {}, liveConfigured: Boolean(process.env.JUPITER_API_KEY && process.env.SOLANA_RPC_URL && process.env.SOLANA_KEYPAIR_PATH && process.env.LIVE_TRADING === '1') };
     for (const [name, action] of Object.entries({
       discovery: async () => ({ candidates: (await data.discover()).length }),
       quote: async () => { const q = await data.quote(USDC, SOL, '5000000'); return { source: q.source, inputUSDC: '5', outputLamports: q.out }; },
@@ -69,6 +71,8 @@ async function main() {
   let live = null;
   if (mode === 'live') { live = LiveBroker.fromEnvironment(db, c, data); await live.initialize(); }
   const engine = new Engine(db, c, data, { live }); let stopping = false;
+  const connectionState = db.read(); connectionState.rpcHost = new URL(data.rpcUrl).hostname;
+  db.save(connectionState, [{ type: 'worker_connection', at: Date.now(), rpcHost: connectionState.rpcHost }]);
   const abort = new AbortController();
   const stop = () => { stopping = true; abort.abort(); };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);

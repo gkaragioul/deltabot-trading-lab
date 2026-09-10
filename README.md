@@ -9,6 +9,14 @@ has been established and simulated results are not earnings.
 
 Requires Node 24 on Windows or Linux. From this directory:
 
+This machine's `.env.local` now selects the public, keyless Solana Vibe Station
+RPC. The CLI loads that file automatically, including when launched by the
+paper supervisor. Explicit process environment values take precedence. The file
+is ignored by Git; it contains only the public RPC URL at present. Recreate this
+setting on another machine with `SOLANA_RPC_URL=https://public.rpc.solanavibestation.com`.
+No account or paid subscription was created. As a shared free endpoint, it can
+still have outages or rate limits; failures continue to block affected entries.
+
 ```powershell
 npm ci --ignore-scripts
 npm test
@@ -148,11 +156,11 @@ cash movement; reclaiming old account rent is not implemented.
 
 ## Validation and limitations
 
-See `docs/VERIFICATION.md` for the latest observed results. Public discovery and
-Raydium quotes worked during development. Public Solana account reads worked,
-but `getTokenLargestAccounts` returned HTTP 429 with Retry-After 10. A reliable RPC
-endpoint is therefore needed if holder screening remains unavailable. Failed
-screening is logged and rejected; the bot does not bypass it to create activity.
+See `docs/VERIFICATION.md` for the latest observed results. The original public
+Solana endpoint returned HTTP 429 for `getTokenLargestAccounts`. The locally
+configured Solana Vibe Station endpoint subsequently passed all four doctor
+checks, including the 20 largest token accounts. Failed screening is still logged
+and rejected; the bot does not bypass unavailable data to create activity.
 
 `npm audit` currently reports four moderate findings in the web3.js dependency
 tree (via jayson/stream-json/uuid). The application uses native fetch for RPC and

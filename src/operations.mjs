@@ -40,6 +40,7 @@ export function report(s, c, events, running, now = Date.now()) {
     `**${s.mode === 'paper' ? 'PAPER MODE — SIMULATED MONEY, NOT EARNINGS' : 'LIVE MODE — REAL WALLET'}**`, '',
     `Updated: ${new Date(now).toISOString()}`, '',
     `Service: **${status}**. New entries: **${s.operatorCommand ?? check.reason ?? 'enabled when a candidate qualifies'}**.`, '',
+    `Blockchain data connection: ${safe(s.rpcHost ?? 'not yet recorded')}.`, '',
     '| Measure | Amount |', '| --- | ---: |',
     `| Total conservative value, including reserve | ${money(check.equity + reserve)} |`,
     `| Active account value | ${money(check.equity)} |`,
