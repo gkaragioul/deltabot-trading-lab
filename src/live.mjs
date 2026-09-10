@@ -5,8 +5,8 @@ import { normalizeQuote, safeError } from './providers.mjs';
 import { risk } from './strategy.mjs';
 
 export function assertLiveConfig(env, c) {
-  if (env.LIVE_TRADING !== '1' || !env.JUPITER_API_KEY || !env.SOLANA_KEYPAIR_PATH || !env.SOLANA_RPC_URL) {
-    throw new Error('LIVE_REQUIRES_ACTIVATION_API_KEY_RPC_AND_DEDICATED_KEYPAIR');
+  if (env.LIVE_TRADING !== '1' || (!env.JUPITER_API_KEY && env.JUPITER_KEYLESS !== '1') || !env.SOLANA_KEYPAIR_PATH || !env.SOLANA_RPC_URL) {
+    throw new Error('LIVE_REQUIRES_ACTIVATION_JUPITER_RPC_AND_DEDICATED_KEYPAIR');
   }
   if (c.activeUsd > 20) throw new Error('LIVE_TRIAL_LIMIT_IS_20_USD');
   const rpc = new URL(env.SOLANA_RPC_URL);
@@ -178,7 +178,7 @@ export class LiveBroker {
     this.store.save(s, [{ type: 'transaction_prepared', at: Date.now(), signature, side, mint: request.mint }]);
     try {
       await this.data.request('https://api.jup.ag/swap/v2/execute', { method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-api-key': this.data.apiKey },
+        headers: { 'content-type': 'application/json', ...(this.data.apiKey ? { 'x-api-key': this.data.apiKey } : {}) },
         body: JSON.stringify({ signedTransaction: Buffer.from(transaction.serialize()).toString('base64'), requestId: raw.requestId }) });
     } catch (e) {
       this.store.save(s, [{ type: 'submission_uncertain', at: Date.now(), signature, error: safeError(e) }]);

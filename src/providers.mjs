@@ -1,4 +1,5 @@
 import { PublicKey } from '@solana/web3.js';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { USDC, SOL, TOKEN_PROGRAM } from './config.mjs';
 
 export function safeError(e) {
@@ -51,9 +52,11 @@ export function tokenCheck(account, largest, c) {
 
 export class Providers {
   constructor(c, { fetchFn = fetch, apiKey = process.env.JUPITER_API_KEY,
+    keyless = process.env.JUPITER_KEYLESS === '1', sleepFn = sleep,
     rpcUrl = process.env.SOLANA_RPC_URL ?? 'https://api.mainnet-beta.solana.com', now = Date.now } = {}) {
     this.c = c; this.fetch = fetchFn; this.apiKey = apiKey; this.rpcUrl = rpcUrl; this.now = now;
-    this.source = apiKey ? 'jupiter' : 'raydium';
+    this.source = apiKey || keyless ? 'jupiter' : 'raydium';
+    this.sleep = sleepFn; this.orderQueue = Promise.resolve(); this.nextOrderAt = 0;
   }
   async request(url, options = {}) {
     let response;
@@ -83,7 +86,7 @@ export class Providers {
   }
   async quote(inputMint, outputMint, amount) {
     if (!/^[1-9][0-9]*$/.test(amount)) throw new Error('INVALID_AMOUNT');
-    if (this.apiKey) {
+    if (this.source === 'jupiter') {
       const raw = await this.order(inputMint, outputMint, amount);
       return normalizeQuote(raw, inputMint, outputMint, amount, this.c, 'jupiter', this.now());
     }
@@ -93,10 +96,20 @@ export class Providers {
     return normalizeQuote(body.data, inputMint, outputMint, amount, this.c, 'raydium', this.now());
   }
   async order(inputMint, outputMint, amount, taker) {
-    if (!this.apiKey) throw new Error('JUPITER_API_KEY_REQUIRED');
+    if (this.source !== 'jupiter') throw new Error('JUPITER_CONNECTION_REQUIRED');
     const params = new URLSearchParams({ inputMint, outputMint, amount, slippageBps: String(this.c.slippageBps) });
     if (taker) params.set('taker', taker);
-    const raw = await this.request(`https://api.jup.ag/swap/v2/order?${params}`, { headers: { 'x-api-key': this.apiKey } });
+    // Serialize starts below the keyless 30 requests/60-second sliding window.
+    // Failed requests consume a slot too; no retry or silent provider fallback.
+    const pending = this.orderQueue.then(async () => {
+      const wait = Math.max(0, this.nextOrderAt - this.now());
+      if (wait) await this.sleep(wait);
+      this.nextOrderAt = this.now() + (this.apiKey ? 1100 : 2100);
+      return this.request(`https://api.jup.ag/swap/v2/order?${params}`, {
+        headers: this.apiKey ? { 'x-api-key': this.apiKey } : {} });
+    });
+    this.orderQueue = pending.then(() => {}, () => {});
+    const raw = await pending;
     if (raw.errorCode || !raw.outAmount) throw new Error('NO_ROUTE');
     return raw;
   }

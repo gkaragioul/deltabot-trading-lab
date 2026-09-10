@@ -38,3 +38,32 @@ test('provider distinguishes API failure from an empty successful result', async
   const q = new Providers(config(), { fetchFn: async () => new Response(JSON.stringify({ success: false, msg: 'no route' })) });
   await assert.rejects(q.quote(USDC, SOL, '5000000'), /NO_ROUTE/);
 });
+
+test('keyless Jupiter quotes omit authentication and pace concurrent calls even after a failure', async () => {
+  let time = 0; const calls = [];
+  const p = new Providers(config(), { apiKey: '', keyless: true, now: () => time,
+    sleepFn: async ms => { time += ms; }, fetchFn: async (url, options) => {
+      calls.push({ url, headers: options.headers, at: time });
+      if (calls.length === 1) return new Response('{}', { status: 429 });
+      return new Response(JSON.stringify({ inputMint: USDC, outputMint: SOL,
+        inAmount: '5000000', outAmount: '10000000', otherAmountThreshold: '9900000' }));
+    } });
+  const result = await Promise.allSettled([p.quote(USDC, SOL, '5000000'), p.quote(USDC, SOL, '5000000')]);
+  assert.equal(p.source, 'jupiter');
+  assert.equal(result[0].reason.message, 'HTTP_429');
+  assert.equal(result[1].value.source, 'jupiter');
+  assert.ok(calls[1].at - calls[0].at >= 2100);
+  for (const call of calls) {
+    assert.equal(new URL(call.url).hostname, 'api.jup.ag');
+    assert.equal(call.headers['x-api-key'], undefined);
+    assert.equal(new URL(call.url).searchParams.has('taker'), false);
+  }
+});
+
+test('authenticated Jupiter retains its API key header', async () => {
+  let headers;
+  const p = new Providers(config(), { apiKey: 'fixture-key', keyless: false,
+    fetchFn: async (_url, options) => { headers = options.headers; return new Response(JSON.stringify({ outAmount: '10' })); } });
+  await p.order(USDC, SOL, '5000000');
+  assert.equal(headers['x-api-key'], 'fixture-key');
+});

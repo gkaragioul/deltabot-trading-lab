@@ -12,7 +12,7 @@ Requires Node 24 on Windows or Linux. From this directory:
 This machine's `.env.local` now selects the public, keyless Solana Vibe Station
 RPC. The CLI loads that file automatically, including when launched by the
 paper supervisor. Explicit process environment values take precedence. The file
-is ignored by Git; it contains only the public RPC URL at present. Recreate this
+is ignored by Git; it contains the public RPC URL and `JUPITER_KEYLESS=1`. Recreate this
 setting on another machine with `SOLANA_RPC_URL=https://public.rpc.solanavibestation.com`.
 No account or paid subscription was created. As a shared free endpoint, it can
 still have outages or rate limits; failures continue to block affected entries.
@@ -92,8 +92,15 @@ Missing holder data means no entry. These checks do not prove a token safe.
 
 ## Quote and cost model
 
-Without credentials, paper quotes use the public Raydium Trade API. When
-`JUPITER_API_KEY` is set, quotes use Jupiter Swap v2. Every fill records its
+This machine uses Jupiter Swap v2 through its official keyless access, enabled
+with `JUPITER_KEYLESS=1`. No account, API key, or paid plan is needed. Order
+requests are serialized at least 2.1 seconds apart, below the published keyless
+30 requests per 60-second window. This pacing is per worker, so other processes
+sharing the connection can still cause HTTP 429. Failed requests are surfaced;
+there is no automatic provider fallback. An optional `JUPITER_API_KEY` takes
+precedence and uses conservative 1.1-second spacing for the free tier.
+
+Without either setting, paper quotes use the public Raydium Trade API. Every fill records its
 provider. Changing providers can alter outcomes; use a new experiment to compare
 providers fairly. Route failures never become simulated successful trades.
 
@@ -125,7 +132,8 @@ Store the Solana CLI-format 64-byte keypair JSON outside the repository with
 access limited to your user. Never paste recovery material into a chat or commit
 it to Git. Set these in the local process environment:
 
-- `JUPITER_API_KEY`: your Jupiter Portal API key.
+- `JUPITER_KEYLESS`: `1` for the official keyless connection (already configured),
+  or optionally `JUPITER_API_KEY` for a Jupiter Developer Platform API key.
 - `SOLANA_RPC_URL`: your HTTPS Solana RPC endpoint supporting account reads,
   largest-account queries, transaction simulation and finalized transaction lookup.
 - `SOLANA_KEYPAIR_PATH`: absolute path to that dedicated keypair file.
@@ -173,6 +181,7 @@ item before treating the live adapter as production-ready.
 - [DEX Screener API](https://docs.dexscreener.com/api/reference)
 - [Raydium Trade API](https://docs.raydium.io/sdk-api/trade-api)
 - [Jupiter Swap v2](https://developers.jup.ag/docs/swap/order-and-execute)
+- [Jupiter access and rate limits](https://developers.jup.ag/docs/portal/rate-limits)
 - [Solana RPC](https://solana.com/docs/rpc)
 
 `src/config.mjs` defines validated parameters; `strategy.mjs` holds the entry/exit

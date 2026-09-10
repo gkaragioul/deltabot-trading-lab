@@ -16,6 +16,14 @@ test('live execution requires all deliberate activation and connection settings'
   assert.throws(() => assertLiveConfig({ LIVE_TRADING: '1', JUPITER_API_KEY: 'key', SOLANA_KEYPAIR_PATH: 'local', SOLANA_RPC_URL: 'https://rpc.example' }, config({ activeUsd: 100 })));
 });
 
+test('keyless Jupiter is a valid connection but never substitutes for activation or a wallet', () => {
+  const env = { LIVE_TRADING: '1', JUPITER_KEYLESS: '1', SOLANA_KEYPAIR_PATH: 'local', SOLANA_RPC_URL: 'https://rpc.example' };
+  assert.doesNotThrow(() => assertLiveConfig(env, config()));
+  for (const field of ['LIVE_TRADING', 'SOLANA_KEYPAIR_PATH', 'SOLANA_RPC_URL', 'JUPITER_KEYLESS']) {
+    assert.throws(() => assertLiveConfig({ ...env, [field]: '' }, config()));
+  }
+});
+
 test('fee reserve is protected on buys but an affordable exit can use the remaining reserve', () => {
   assert.throws(() => checkFeeReserve('buy', 5000000, -2000000, config()), /RESERVE/);
   assert.doesNotThrow(() => checkFeeReserve('sell', 2000000, -5000, config()));

@@ -1,5 +1,25 @@
 # Verification — 10 September 2026
 
+## Jupiter setup update
+
+Item 2 now uses Jupiter's documented keyless access, enabled through the ignored
+local setting `JUPITER_KEYLESS=1`. No key, account or paid plan was created.
+Jupiter's official documentation index specifies 0.5 RPS access on api.jup.ag
+without sign-up: https://developers.jup.ag/docs/llms.txt.
+
+The full suite passes 39 tests. New coverage checks keyless authentication-header
+omission, pacing concurrent calls after HTTP 429, preserving keyed access, and
+requiring a wallet, RPC and explicit activation even with keyless access.
+Real doctor checks all pass: 15 discovery candidates, Jupiter quote for 5 USDC
+returning 49,426,847 SOL base units, slot 445855342, and 20 holder accounts.
+These are read-only quotes and account queries, not swaps or payment receipts.
+
+Before changing providers, the paper ledger had 15 scans and no buys, sells or
+open positions. The worker was stopped and both worker/supervisor locks were
+verified released. The existing ledger is retained, and the provider transition
+is recorded in a worker_connection event and shown in the status report.
+Live configuration remains false; no wallet or activation was added.
+
 ## RPC setup update
 
 The user requested setup of item 1, the Solana data connection. Configured the

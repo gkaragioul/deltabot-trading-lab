@@ -37,7 +37,7 @@ function writeReport(running) {
 
 async function main() {
   if (command === 'doctor') {
-    const result = { mode, quoteProvider: data.source, rpcHost: new URL(data.rpcUrl).hostname, checks: {}, liveConfigured: Boolean(process.env.JUPITER_API_KEY && process.env.SOLANA_RPC_URL && process.env.SOLANA_KEYPAIR_PATH && process.env.LIVE_TRADING === '1') };
+    const result = { mode, quoteProvider: data.source, jupiterAccess: data.source === 'jupiter' ? (data.apiKey ? 'api-key' : 'keyless') : null, rpcHost: new URL(data.rpcUrl).hostname, checks: {}, liveConfigured: Boolean(data.source === 'jupiter' && process.env.SOLANA_RPC_URL && process.env.SOLANA_KEYPAIR_PATH && process.env.LIVE_TRADING === '1') };
     for (const [name, action] of Object.entries({
       discovery: async () => ({ candidates: (await data.discover()).length }),
       quote: async () => { const q = await data.quote(USDC, SOL, '5000000'); return { source: q.source, inputUSDC: '5', outputLamports: q.out }; },
@@ -72,7 +72,10 @@ async function main() {
   if (mode === 'live') { live = LiveBroker.fromEnvironment(db, c, data); await live.initialize(); }
   const engine = new Engine(db, c, data, { live }); let stopping = false;
   const connectionState = db.read(); connectionState.rpcHost = new URL(data.rpcUrl).hostname;
-  db.save(connectionState, [{ type: 'worker_connection', at: Date.now(), rpcHost: connectionState.rpcHost }]);
+  connectionState.quoteProvider = data.source;
+  connectionState.jupiterAccess = data.source === 'jupiter' ? (data.apiKey ? 'api-key' : 'keyless') : null;
+  db.save(connectionState, [{ type: 'worker_connection', at: Date.now(), rpcHost: connectionState.rpcHost,
+    quoteProvider: connectionState.quoteProvider, jupiterAccess: connectionState.jupiterAccess }]);
   const abort = new AbortController();
   const stop = () => { stopping = true; abort.abort(); };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);

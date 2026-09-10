@@ -41,6 +41,7 @@ export function report(s, c, events, running, now = Date.now()) {
     `Updated: ${new Date(now).toISOString()}`, '',
     `Service: **${status}**. New entries: **${s.operatorCommand ?? check.reason ?? 'enabled when a candidate qualifies'}**.`, '',
     `Blockchain data connection: ${safe(s.rpcHost ?? 'not yet recorded')}.`, '',
+    `Quote provider: ${safe(s.quoteProvider ?? 'not yet recorded')}${s.jupiterAccess ? ` (${safe(s.jupiterAccess)})` : ''}.`, '',
     '| Measure | Amount |', '| --- | ---: |',
     `| Total conservative value, including reserve | ${money(check.equity + reserve)} |`,
     `| Active account value | ${money(check.equity)} |`,
