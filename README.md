@@ -1,41 +1,138 @@
-# DeltaBot Coinbase Trading Lab
+# DeltaBot Trading Lab
 
-Coinbase spot-market scanner, paper trader and manually activated live-order
-adapter. Funds stay on Coinbase. The default worker simulates trades using live
-order books, the account's taker fee and adverse execution assumptions.
+Coinbase spot-market research, paper trading and execution diagnostics with
+recorded order-book replay, the official Coinbase Python SDK and Backtesting.py.
 
-**No profitable edge has been established.** The initial 24-hour, eight-market
-replay made 58 simulated orders and lost 4.1878 USDC from 20 USDC, including 3.4182
-USDC of modeled commissions. The measured account fee was 1.2% per taker side.
-Higher activity is not a return target; repeated 10x/100x returns are not an
-implemented or supported claim. Historical simulation is not a payment receipt.
+**Version 0.2.0 · Experimental · 83 Node tests + 9 Python tests**
 
-## Start and inspect
+The default trading worker simulates orders. A manually gated live adapter exists,
+but real-money fills have not been validated. **No profitable strategy has been
+established.** The project reports losses, fees, missing data and failed hypotheses
+alongside successful software checks.
 
-Requires Node 24. The local Coinbase key is configured through `COINBASE_KEY_FILE`
-in ignored `.env.local`. Its private file remains outside Git with user-only
-Windows permissions. Never put private key material in these documents.
+## What is implemented
+
+| Component | Capability |
+| --- | --- |
+| Coinbase paper engine | USDC spot discovery, closed-candle signals, decimal sizing, fee-aware exits and durable SQLite ledgers |
+| Public depth recorder | BTC/ETH/SOL level2 books, five-second top-20 snapshots, stale-data and sequence-gap checks |
+| Portfolio research | 13 frozen hypotheses, chronological train/validation/test selection, spread/latency stress and archived results |
+| Recorded-book replay | Uses observations available at simulated time; rejects missing or stale books |
+| Coinbase SDK 1.8.4 | Public REST candle checks against cached data, without account credentials |
+| Backtesting.py 0.6.6 | Independent single-market broker using the bot's actual entry signals and explicit execution costs |
+| Virtual-capital comparisons | In-memory balance/position experiments, including $200 cases, without changing live limits |
+| Manual live adapter | IOC limits, previews, partial-fill accounting, one-shot submissions and pending-order recovery |
+
+Freqtrade and Hummingbot were assessed but are **not installed or integrated**.
+Post-only maker execution and slower strategy experiments remain planned research,
+not implemented features. See [tool decisions and integration details](docs/TOOLS-AND-MARKET-DATA.md).
+
+## Quick start
+
+Use Node.js 24 or later. The Windows launchers run background workers with hidden
+windows; direct Node commands can also be run in a terminal.
 
 ```powershell
+npm ci
 npm test
-npm run research:external # Installed SDK candle check + Backtesting.py diagnostics
+```
+
+### Record public market data without an account key
+
+```powershell
+./Start-Coinbase-Recorder.ps1
+node src/cb/record-books.mjs status
+node src/cb/record-books.mjs stop
+```
+
+After an intentional stop, run `node src/cb/record-books.mjs resume` before the
+launcher. The recorder cannot place orders. Samples are stored under
+`runtime/coinbase-books`, retained for at most seven days and trimmed earlier
+near the database size cap. It must stay awake and connected to collect data.
+
+### Configure account-backed paper research
+
+Store the Coinbase CDP credential JSON outside the repository. Set its path in
+an untracked `.env.local` file, for example:
+
+```dotenv
+COINBASE_KEY_FILE=C:/private/coinbase/cdp_api_key.json
+```
+
+The file is read locally; never commit or paste its private key. Paper research
+reads markets and the account fee tier. The `doctor` also checks permissions,
+balances and a nonexecuting order preview; it does not submit a trade.
+
+```powershell
 node src/cb/cli.mjs doctor
 ./Start-Coinbase-Paper.ps1
 node src/cb/cli.mjs status
+./Start-Coinbase-Challenger.ps1
+node src/cb/cli.mjs status --paper-strategy momentum-1.5-hold-180
 ```
 
-The doctor reads permissions, balances, fees, products and candles and requests
-a nonexecuting order preview. It does not place a trade. The current key has View
-and Trade permissions and no Transfer permission. Software limits are not
-restrictions enforced by the API key itself.
+Status commands refresh local Markdown dashboards. Workers need an awake,
+connected computer. The baseline has a crash supervisor; the challenger and
+recorder do not have an OS crash supervisor or automatic startup after reboot.
 
-Open [the paper dashboard](runtime/coinbase-paper/STATUS.md) for process health,
-signals, positions, commissions and profit/loss. `status` refreshes the snapshot.
-Worker logs and the SQLite event ledger are in the same ignored folder. The
-hidden supervisor restarts an unexpectedly failed paper worker. The computer must
-remain awake and online; it does not resume after reboot automatically.
+### Run research and the installed external tools
 
-## Controls
+The optional Python integrations require Python 3.12 and `uv`. Setup creates an
+isolated environment and installs 27 dependencies from the version-and-hash lock.
+
+```powershell
+./Setup-Research-Tools.ps1
+node src/cb/research-cli.mjs collect --days 14 --products 8
+node src/cb/research-cli.mjs run
+npm run research:external
+node src/cb/replay-recorded.mjs --minutes 60
+```
+
+Collect data before running the external command. The collector defaults to an
+end date two UTC dates before today; use its explicit `--end` Unix timestamp and
+`--dataset` options for a different archived window. Backtesting.py requires
+complete candles, including warmup, for the selected markets. The combined
+external command first checks nine sampled windows through the official SDK;
+a failed check stops the run before simulation.
+
+Outputs live under ignored `runtime/` directories. Source and dependency hashes,
+protocols, input data, per-trade results and Markdown reports identify each run.
+Local account ledgers, runtime datasets, dependencies and credentials are not
+included in this repository or release.
+
+## Latest simulation evidence
+
+The same eight-market window, **September 8, 2026 12:17 UTC through September 10,
+2026 12:17 UTC**, produced these results. Each row is a separate virtual account.
+
+| Strategy | Initial USDC | Position budget | Closed trades | Final USDC | Net USDC | Commissions USDC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Baseline | 20 | 5 | 42 | 14.9166 | -5.0834 | 4.9614 |
+| Challenger | 20 | 5 | 23 | 17.2326 | -2.7674 | 2.7165 |
+| Baseline | 200 | 50 | 39 | 149.6381 | -50.3619 | 46.0970 |
+| Challenger | 200 | 50 | 23 | 171.0287 | -28.9713 | 27.1894 |
+| Baseline | 200 | 5 | 143 | 181.4552 | -18.5448 | 16.8776 |
+| Challenger | 200 | 5 | 23 | 197.2326 | -2.7674 | 2.7165 |
+
+The captured account fee was 1.2% per taker side; it is not a universal Coinbase
+rate. The model also charges spread and adverse execution. Larger virtual capital
+scales the dollar loss allowances while retaining their percentages; this can
+permit more trades even with unchanged position size. Larger positions encounter
+different liquidity rejections, so results are reruns, not simple multiplication.
+
+The earlier 14-day, 13-hypothesis study qualified no candidate. Recent external
+BTC/ETH/SOL diagnostics found one losing SOL trade; two 25-minute recorded-book
+replays found no entries. Zero trades are inconclusive. Holding cash outperformed
+the tested trading runs. See [research protocol and results](docs/COINBASE-RESEARCH.md)
+and [release notes](docs/releases/v0.2.0.md).
+
+Minute-volume liquidity is a proxy. Current product selection introduces bias;
+missing data may prevent exits and inflate conservative drawdown through zero
+marks. Historical windows already inspected are not new independent validation.
+Backtesting.py uses separate single-market accounts with different execution
+assumptions; their returns must not be added as a portfolio.
+
+## Controls and live limits
 
 ```powershell
 node src/cb/cli.mjs pause
@@ -43,116 +140,47 @@ node src/cb/cli.mjs resume
 node src/cb/cli.mjs flatten
 node src/cb/cli.mjs stop
 node src/cb/cli.mjs export
-node src/cb/cli.mjs backtest --hours 24 --products 8
 ```
 
-- `pause`: block new entries; keep managing existing exits.
-- `resume`: remove an operator control. Restart the launcher if stopped.
-- `flatten`: keep attempting sales of bot-owned positions and block new buys.
-  Verify zero positions before stopping; unavailable sales remain open.
-- `stop` or Ctrl+C: block subsequent submissions and finish the active work before
-  exit. Already submitted orders still need settlement. Held assets remain held,
-  with no automatic exit while the worker is stopped.
-- `export`: write event history to `events.jsonl`.
-- `backtest`: replay two to 48 hours across up to 20 currently eligible products;
-  save assumptions, results and events to `runtime/coinbase/backtest.json`.
+Use `--paper-strategy momentum-1.5-hold-180` for the separate challenger ledger.
+Pause blocks entries while exits continue. Flatten attempts to close bot-owned
+positions. Stop persists across restarts and disables management until restart;
+it does not guarantee holdings were closed. Inspect status before assuming so.
 
-Commands accept `--mode paper|live`, `--runtime <directory>` and
-`--config <JSON-file>`. Run also accepts `--cycles <positive integer>`.
-Configuration and mode are bound to the ledger. A live worker holds a shared OS
-lock independent of runtime or checkout. Do not create a new live ledger to
-bypass a halt or orphan an earlier bot position.
+Actual trading settings retain a **20-USDC strategy budget**, **5-USDC position
+cap**, two positions, a 2-USDC daily-loss entry gate and a 5-USDC peak-drawdown
+entry gate. These are software controls, not guaranteed maximum losses or API-key
+spending restrictions. The 200-submission daily gate is a ceiling, not a quota;
+necessary exits remain permitted. No transfers, borrowing or leverage.
 
-For a stopped live ledger with a pending order, use
-`node src/cb/cli.mjs reconcile --mode live`. This command only reads Coinbase and
-updates the local ledger; it cannot submit orders. It preserves the stop control.
-If settlement is still unknown, it remains pending. Once reconciled, `resume`
-can remove the control, followed by explicit manual startup. Balance halts clear
-only if actual and expected balances match. External deposits, withdrawals or
-manual trades require investigation; the tool does not silently adopt them as P&L.
-Drawdown halts cannot be cleared by `resume` or reconciliation.
+Live mode needs deliberate activation through `Start-Coinbase-Live.ps1`, including
+the `START20` confirmation. The paper supervisor cannot start it. Ambiguous orders
+remain journaled and are not automatically resubmitted. A stopped pending ledger
+can be inspected with `node src/cb/cli.mjs reconcile --mode live`, which reads
+exchange state without submitting an order. Never erase pending state or reset a
+ledger to bypass a halt. Preexisting account assets are not adopted as bot holdings.
 
-## Strategy and limits
+## Verification and layout
 
-The default scan interval is 15 seconds, subject to API latency. Discovery selects
-up to 20 eligible USDC spot products by reported 24-hour volume. This is Coinbase's
-listed universe, not every newly launched memecoin. Closed one-minute candles
-feed an unvalidated hypothesis: five-minute momentum 0.6–8%, EMA5 above EMA20,
-and a 0.1–0.8% pullback from the recent high.
+```powershell
+npm test
+.venv-research/Scripts/python.exe -m unittest discover -s integrations/python -v
+uv pip check --python .venv-research/Scripts/python.exe
+```
 
-| Control | Default / hard maximum |
-| --- | --- |
-| Starting strategy budget | 20 USDC |
-| Cost per position including entry commission | 5 USDC |
-| Simultaneous positions | 2 |
-| Daily loss threshold for blocking entries | 2 USDC |
-| Peak drawdown threshold for blocking entries | 5 USDC |
-| Daily entry gate | 200 total submissions; necessary exits allowed |
-| Maximum spread / limit-price deviation | 30 / 30 basis points |
-| Modeled immediate round-trip cost ceiling | 3% |
-| Net stop / take-profit / trailing decline | 3.5% / 6% / 1.5% |
-| Maximum holding time / re-entry cooldown | 15 / 5 minutes |
+- `src/cb/`: Coinbase data access, engine, controls, recorder and research.
+- `integrations/python/`: installed-package adapters, tests and dependency lock.
+- `test/`: Node regression and integration tests.
+- `docs/VERIFICATION.md`: verification evidence and model limitations.
+- `docs/releases/`: versioned release descriptions.
 
-Sizing and fill accounting use decimal fixed-point arithmetic. The daily order
-setting is a ceiling, not a quota; there may be no qualifying trades. Zero-filled
-or explicitly rejected live exits wait at least a minute before another attempt.
-Necessary exits can exceed the daily entry gate. Loss thresholds block new
-purchases but do not guarantee a maximum loss. Days use UTC; unpriced holdings
-remain included conservatively in the next day's loss baseline.
+The Coinbase Node implementation uses built-in crypto, fetch, WebSocket and
+SQLite. Optional Python packages retain their upstream licenses. The older Solana
+experiment and its dependency remain in [legacy documentation](docs/SOLANA-LEGACY.md).
+The npm `start`, `status` and `doctor` shortcuts still target that legacy engine;
+use the explicit Coinbase commands above. Legacy dependency audit findings are
+tracked separately from the Coinbase implementation.
 
-The 3% cost ceiling accommodates the observed 1.2% taker fee per side plus modeled
-execution costs. Parameters were not optimized on the replay. The losing replay
-does not justify activating this strategy. USDC is valued at USD parity.
-
-## Live adapter
-
-The adapter implements bounded immediate-or-cancel limit orders, mandatory
-previews, actual partial-fill/commission accounting and durable recovery. It saves
-a unique client order ID before one submission. An uncertain result stays pending
-across restarts and is never automatically submitted again. Do not delete pending
-state to get the bot moving; reconcile it against Coinbase first.
-
-Preexisting holdings form a baseline and are not bot positions. Unrelated account
-changes pause entries. Protective exits require sufficient inventory above that
-baseline. Confirmed settlements are recorded even if balance checks fail; those
-discrepancies remain halted. Unavailable fees block buys while exits use a
-conservative estimate. Stale books, missing liquidity or API failures can prevent
-execution. Software stops require the worker and network to be healthy.
-
-**Real-money fills have not been validated. Live trading is not running.**
-Manual activation is available through `Start-Coinbase-Live.ps1`, which requires
-typing `START20`. It enables both the process environment gate and explicit CLI
-activation flag for that session only. The paper supervisor cannot start it.
-Use `--mode live` for its status and controls. No transfers, borrowing or leverage.
-
-## Verification and source layout
-
-The [research protocol and results](docs/COINBASE-RESEARCH.md) document the new
-14-day, 13-hypothesis study, separate train/validation/test windows and exploratory
-forward challenger. No candidate passed qualification. Run
-`node src/cb/research-cli.mjs status` for the latest research report.
-
-[External tool assessment and public book recorder](docs/TOOLS-AND-MARKET-DATA.md)
-document the next improvement: actual Coinbase depth sampling and recorded-book
-replay. The recorder runs independently and cannot place trades.
-
-[Verification record](docs/VERIFICATION.md) documents tests, real read/preview
-checks, replay outcomes and limitations. Coinbase uses native crypto, fetch and
-SQLite; this addition installs no new dependency.
-
-- `src/cb/api.mjs`: signed requests, endpoint restrictions, pagination and pacing.
-- `decimal.mjs`, `config.mjs`, `market.mjs`: arithmetic, validation and signals.
-- `execution.mjs`, `engine.mjs`: journaled orders, fills, exits and risk controls.
-- `cli.mjs`, `operations.mjs`, `supervisor.mjs`, `report.mjs`: process and controls.
-- `backtest.mjs`: historical replay with modeled liquidity, spread and fees.
-
-The old Solana experiment is retained in [legacy documentation](docs/SOLANA-LEGACY.md).
-Its paper worker is stopped as a one-time migration. The Coinbase launcher does
-not control legacy workers subsequently started manually. Original npm scripts
-still refer to the legacy engine; use Coinbase commands above. Existing Solana
-dependency audit findings remain a legacy maintenance item; Coinbase does not
-import that SDK.
-
-Official interfaces: [authentication](https://docs.cdp.coinbase.com/coinbase-app/authentication-authorization/api-key-authentication),
-[create order](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/create-order),
-[get order](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/get-order).
+Official references: [Coinbase fees](https://help.coinbase.com/en/coinbase/trading-and-funding/advanced-trade/advanced-trade-fees),
+[Coinbase SDK](https://github.com/coinbase/coinbase-advanced-py),
+[Backtesting.py](https://github.com/kernc/backtesting.py).

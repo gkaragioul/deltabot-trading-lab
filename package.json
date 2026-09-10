@@ -1,6 +1,7 @@
 {
   "name": "deltabot-memecoin-lab",
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "description": "Coinbase paper trading and strategy research with recorded order books, independent backtesting and fee-aware simulations.",
   "private": true,
   "type": "module",
   "engines": { "node": ">=24.0.0" },
