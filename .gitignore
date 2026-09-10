@@ -3,3 +3,6 @@ runtime/
 .env*
 *.key.json
 *.log
+.venv-research/
+__pycache__/
+*.pyc

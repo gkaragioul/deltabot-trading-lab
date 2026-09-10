@@ -8,7 +8,8 @@
     "test": "node --test test/*.test.mjs",
     "start": "node src/cli.mjs run",
     "status": "node src/cli.mjs status",
-    "doctor": "node src/cli.mjs doctor"
+    "doctor": "node src/cli.mjs doctor",
+    "research:external": "node src/cb/external-cli.mjs run"
   },
   "dependencies": { "@solana/web3.js": "1.99.0" }
 }

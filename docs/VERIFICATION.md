@@ -1,11 +1,38 @@
 # Verification — 10 September 2026
 
+## Installed external research engines
+
+**82 Node tests and 9 Python integration tests pass.** Coinbase Advanced Python
+SDK 1.8.4 and Backtesting.py 0.6.6 are installed in an isolated Python 3.12
+environment. `Setup-Research-Tools.ps1` succeeds on rerun; `uv pip check` confirms
+all 27 locked dependencies are compatible. Freqtrade/Hummingbot remain uninstalled.
+
+`npm run research:external` completed both real integration stages at 12:12 UTC.
+The official public SDK exactly matched all nine sampled one-hour OHLCV windows
+from the cached BTC/ETH/SOL data. Twelve real Backtesting.py runs used two native
+signal families, three markets and two cost scenarios. Outputs are archived in
+`runtime/coinbase-external/2026-09-10T12-12-32-808Z-298cd22a`, including source,
+bundle and dependency-lock hashes, per-trade results and a human-readable report.
+
+Regressions cover causal signal export with positive entries, gap rejection,
+fractional sizing through a doubling entry-price gap, both-side commissions,
+spread/fee budget interaction, next-open stops, final liquidation and SDK refusal
+of private reads/writes. Independent review identified a cost display omitting
+spread; a failing regression reproduced it, the total was corrected, and all
+nine Python tests passed on re-review with no remaining material findings.
+
+These are separate diagnostic accounts, not a replica of the portfolio engine
+or a fresh holdout. Every simulation with trades lost money after modeled costs;
+zero-trade results are inconclusive. The new integration submits no orders,
+reads no account credentials and leaves existing worker controls unchanged.
+
 ## Public order-book recorder and recorded replay
 
 All **80 tests pass** after adding Coinbase public level2 recording and archive
 replay. The addition is based on the official protocol reviewed alongside
-Coinbase's SDK, Freqtrade, Hummingbot and Backtesting.py. No external package or
-framework code was installed/copied. Details and primary sources are in
+Coinbase's SDK, Freqtrade, Hummingbot and Backtesting.py. At that recorder stage,
+no external package was installed; the later integration is described above.
+Details and primary sources are in
 [TOOLS-AND-MARKET-DATA.md](TOOLS-AND-MARKET-DATA.md).
 
 A public 20-second check received 1,004 messages and recorded nine snapshots

@@ -18,6 +18,7 @@ Windows permissions. Never put private key material in these documents.
 
 ```powershell
 npm test
+npm run research:external # Installed SDK candle check + Backtesting.py diagnostics
 node src/cb/cli.mjs doctor
 ./Start-Coinbase-Paper.ps1
 node src/cb/cli.mjs status

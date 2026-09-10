@@ -136,3 +136,15 @@ or establishes live profitability.
 
 Official references: [candle endpoint](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/products/get-product-candles)
 and [maker/taker fee rules](https://help.coinbase.com/en/coinbase/trading-and-funding/advanced-trade/advanced-trade-fees).
+
+## External engine continuation
+
+The official Coinbase Python SDK and Backtesting.py are installed and integrated;
+see [TOOLS-AND-MARKET-DATA.md](TOOLS-AND-MARKET-DATA.md). `npm run research:external`
+checks sampled cached candles through the public SDK and runs independent
+single-market simulations using the same entry decisions. Use it after a new
+dataset or a material adapter/strategy change, not repeatedly on unchanged data.
+Read `runtime/coinbase-external/latest.json` and its referenced `REPORT.md` for
+results. A successful command means the diagnostic completed, not that a strategy
+passed profitability qualification. Do not add independent account returns,
+promote a zero-trade result, retune against exposed periods or enable live trading.
