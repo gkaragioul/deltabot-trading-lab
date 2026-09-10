@@ -148,3 +148,24 @@ Read `runtime/coinbase-external/latest.json` and its referenced `REPORT.md` for
 results. A successful command means the diagnostic completed, not that a strategy
 passed profitability qualification. Do not add independent account returns,
 promote a zero-trade result, retune against exposed periods or enable live trading.
+
+## Virtual capital comparisons
+
+`replayDataset` accepts optional `capitalUsd` and `positionUsd` for in-memory
+simulation. Position budget defaults to proportional scaling of the original
+strategy allocation. Daily-loss and drawdown allowances scale with starting
+capital, retaining their original percentages. The original configuration is
+validated before making a local copy; real-money configuration still rejects
+capital above 20 USDC and positions above 5 USDC. Virtual capital is bounded at
+10,000 USDC. Results include `simulationBudget` so sizing and loss limits are
+explicit. These options do not change live workers or their ledgers.
+
+The September 10 $200 comparison reran the September 8 12:17–September 10 12:17
+UTC dataset. With 50-USDC positions, baseline ended at 149.6381 USDC and challenger
+at 171.0287. With 5-USDC positions, they ended at 181.4552 and 197.2326 respectively.
+Keeping small positions does not necessarily preserve the original number of
+trades: a larger daily-loss/drawdown allowance let the baseline continue trading
+longer. Fees remained the captured 1.2% per side. Neither configuration was
+profitable; increased order size also encountered more modeled liquidity rejects.
+Detailed protocol, events and report are under
+`runtime/coinbase-simulations/2026-09-10T1217Z/capital-200`.

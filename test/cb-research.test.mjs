@@ -49,3 +49,18 @@ test('measured-book replay requests past observations and cannot fall back to in
  const r=await replayDataset(data,settings(),{decisionFn:()=>({enter:true,reason:'fixture'}),bookSource:{at:(id,time)=>{calls++;assert.equal(id,'TEST-USDC');assert.ok(time>=data.start*1000&&time<data.end*1000);throw new Error('NO_RECORDED_BOOK');}}});
  assert.ok(calls>0);assert.equal(r.orders,0);assert.equal(r.bookModel,'recorded');assert.ok(r.errors>0);
 });
+
+test('virtual capital scales replay sizing without relaxing live config limits',async()=>{
+ const data=dataset();for(const row of data.bars['TEST-USDC'])row.volume=10000;
+ const c=settings(),decisionFn=()=>({enter:true,reason:'fixture'});
+ const r=await replayDataset(data,c,{capitalUsd:200,decisionFn});
+ assert.equal(r.startEquity,'200');assert.ok(r.orders>0);assert.ok(r.netChange<0);
+ const buys=r.events.filter(e=>e.type==='paper_fill'&&e.side==='BUY');
+ assert.ok(buys.some(e=>Number(e.value)>40));assert.ok(buys.every(e=>Number(e.value)+Number(e.fee)<=50));
+ assert.equal(c.activeUsd,20);assert.equal(c.positionUsd,5);
+ assert.throws(()=>settings({activeUsd:200,positionUsd:50}),/CONFIG_EXCEEDS_TRIAL_LIMITS/);
+ const fixed=await replayDataset(data,c,{capitalUsd:200,positionUsd:5,decisionFn});
+ assert.equal(fixed.startEquity,'200');assert.ok(fixed.events.filter(e=>e.side==='BUY').every(e=>Number(e.value)+Number(e.fee)<=5));
+ await assert.rejects(replayDataset(data,c,{capitalUsd:NaN}),/INVALID_REPLAY_CAPITAL/);
+ await assert.rejects(replayDataset(data,c,{capitalUsd:200,positionUsd:201}),/INVALID_REPLAY_CAPITAL/);
+});

@@ -1,5 +1,16 @@
 # Verification — 10 September 2026
 
+## Virtual $200 comparison
+
+The capital-scaling regression first failed with the original 20-USDC balance,
+then passed for virtual 200-USDC balances with 50-USDC and fixed 5-USDC positions.
+It checks actual fills, all-in position budgets, immutable original settings,
+invalid virtual inputs, and unchanged live trial-limit rejection. Independent
+review found no material issue and confirmed default replay results match HEAD
+on native and forced-entry fixtures except for the new budget metadata.
+The six 48-hour reruns reproduced both original 20-USDC outcomes exactly and
+produced four new 200-USDC sizing results. All runs ended with zero holdings.
+
 ## Installed external research engines
 
 **82 Node tests and 9 Python integration tests pass.** Coinbase Advanced Python
