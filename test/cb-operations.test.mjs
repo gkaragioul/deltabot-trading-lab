@@ -25,3 +25,11 @@ test('shutdown publishes a durable stop visible to final execution guards',()=>{
  let command=null;const abort=new AbortController();requestStop({command:c=>{command=c;}},abort);
  assert.equal(command,'stop');assert.equal(abort.signal.aborted,true);
 });
+
+test('research hypotheses cannot be selected for real-money mode',()=>{
+ assert.throws(()=>execFileSync(process.execPath,[cli,'run','--mode','live','--paper-strategy','momentum-1.5-hold-180'],{encoding:'utf8',stdio:'pipe'}),e=>e.status===1&&String(e.stderr).includes('RESEARCH_STRATEGY_PAPER_ONLY'));
+});
+
+test('legacy backtest cannot silently substitute momentum for a research hypothesis',()=>{
+ assert.throws(()=>execFileSync(process.execPath,[cli,'backtest','--paper-strategy','trend-dip-2'],{encoding:'utf8',stdio:'pipe',env:{...process.env,COINBASE_KEY_FILE:'missing-test-key'}}),e=>e.status===1&&String(e.stderr).includes('RESEARCH_BACKTEST_USE_RESEARCH_CLI'));
+});

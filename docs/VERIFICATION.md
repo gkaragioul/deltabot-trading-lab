@@ -1,5 +1,37 @@
 # Verification — 10 September 2026
 
+## Research and forward-comparison update
+
+The research upgrade passes **74 tests**. New regressions cover disjoint research
+periods, selection without reading held-out outcomes, next-candle execution with
+actual simulated trades, fees on flat prices, resumable cached collection,
+interrupted JSON recovery, rejection of mismatched dataset options, paper-only
+hypotheses and rejection of the legacy backtest's unsupported hypothesis flag.
+The research CLI and challenger PowerShell launcher pass syntax checks.
+
+Independent review identified interrupted cache writes, silently ignored dataset
+options, and a legacy-backtest signal substitution. All were corrected with
+regressions. Source and dataset fingerprints identify cached study outputs.
+Repeated runs after implementation changes reproduced the same numerical results;
+these are verification reruns, not additional independent performance evidence.
+
+The 14-day study evaluated 13 predefined hypotheses on seven training days and
+four validation days, then a locked diagnostic candidate and baseline on three
+test days. None qualified. In the test window, baseline net P&L was -5.1474741476
+USDC (86 orders, 5.08605693 commissions), challenger net P&L -1.3279819778 USDC
+(14 orders, 0.82193759 commissions), and challenger stress net P&L approximately
+-1.5035 USDC. Each window started with 20 simulated USDC. Missing candle coverage
+and conservative unpriced-position marks limit interpretation of drawdown.
+Detailed assumptions and coverage are in [COINBASE-RESEARCH.md](COINBASE-RESEARCH.md).
+
+The exploratory `momentum-1.5-hold-180` forward paper worker started alongside
+the baseline. At 11:32:47 UTC, its status showed 12 scans, zero fills, no pending
+order and no current error. It has an independent ledger and is explicitly
+unqualified for live use. The existing task heartbeat was updated from the old
+bounty follow-up to daily paper strategy research at 09:00 Europe/Athens,
+preserving stop/pause/risk controls and quiet notifications without material news.
+No real-money order or transfer was submitted in this research work.
+
 ## Coinbase automation build
 
 The current build implements the separate Coinbase engine in `src/cb`. It runs

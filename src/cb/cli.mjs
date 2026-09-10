@@ -1,12 +1,17 @@
 import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';import {resolve,dirname,join} from 'node:path';import {fileURLToPath} from 'node:url';import {setTimeout as sleep} from 'node:timers/promises';
 import {loadLocalEnvironment} from '../environment.mjs';import {Store} from '../store.mjs';import {acquireLock,workerRunning} from '../operations.mjs';
 import {liveLockPath,requestStop} from './operations.mjs';
+import {candidates,decisionFor,researchVersion} from './research-strategies.mjs';
 import {CoinbaseApi} from './api.mjs';import {settings} from './config.mjs';import {Markets,buildIntent} from './market.mjs';import {initialLedger,LiveExecution} from './execution.mjs';import {CoinbaseEngine,cleanError} from './engine.mjs';import {report} from './report.mjs';import {backtest} from './backtest.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');loadLocalEnvironment(root);
 const args=process.argv.slice(2),command=args.shift()??'status',opts={};
-while(args.length){const flag=args.shift();if(flag==='--activate-live'){opts.activate=true;continue;}if(!['--mode','--runtime','--config','--cycles','--hours','--products'].includes(flag)||!args.length)throw new Error('INVALID_ARGUMENT');opts[flag.slice(2)]=args.shift();}
+while(args.length){const flag=args.shift();if(flag==='--activate-live'){opts.activate=true;continue;}if(!['--mode','--runtime','--config','--cycles','--hours','--products','--paper-strategy'].includes(flag)||!args.length)throw new Error('INVALID_ARGUMENT');opts[flag.slice(2)]=args.shift();}
 const mode=opts.mode??'paper';if(!['paper','live'].includes(mode))throw new Error('INVALID_MODE');
-const c=settings(opts.config?JSON.parse(readFileSync(resolve(opts.config),'utf8')):{}),runtime=resolve(opts.runtime??join(root,'runtime','coinbase-'+mode));
+if(opts['paper-strategy']&&mode!=='paper')throw new Error('RESEARCH_STRATEGY_PAPER_ONLY');
+const hypothesis=opts['paper-strategy']?candidates().find(c=>c.id===opts['paper-strategy']):null;
+if(opts['paper-strategy']&&(!hypothesis||opts.config))throw new Error('INVALID_RESEARCH_STRATEGY');
+if(hypothesis&&command==='backtest')throw new Error('RESEARCH_BACKTEST_USE_RESEARCH_CLI');
+const c=hypothesis?.config??settings(opts.config?JSON.parse(readFileSync(resolve(opts.config),'utf8')):{}),runtime=resolve(opts.runtime??join(root,'runtime',hypothesis?'coinbase-forward-'+hypothesis.id:'coinbase-'+mode));
 let db,lock,liveLock;const write=async()=>{const text=report(db.read(),c,db.events(),await workerRunning(runtime),db.getCommand());writeFileSync(join(runtime,'STATUS.md'),text);return text;};
 async function main(){
   if(command==='doctor'){
@@ -32,6 +37,8 @@ async function main(){
     liveLock=await acquireLock(liveLockPath);lock=await acquireLock(runtime);
   }
   db=new Store(runtime,c,mode);if(!db.read().kind)db.save(initialLedger(c,mode),[]);if(db.read().kind!=='coinbase-v1')throw new Error('WRONG_LEDGER');
+  if(hypothesis){const s=db.read(),identity=researchVersion+':'+hypothesis.id;if(s.hypothesis!==identity){if(s.scans||s.hypothesis)throw new Error('RESEARCH_LEDGER_MISMATCH');s.hypothesis=identity;db.save(s,[]);}}
+  else if(db.read().hypothesis)throw new Error('RESEARCH_STRATEGY_REQUIRED');
   if(command==='status'){console.log(await write());return;}
   if(command==='export'){const path=join(runtime,'events.jsonl');writeFileSync(path,db.events(1000000).reverse().map(e=>JSON.stringify(e)).join('\n')+'\n');console.log(path);return;}
   if(command==='reconcile'){
@@ -43,7 +50,7 @@ async function main(){
   }
   if(db.getCommand()==='stop'){console.log('Stopped by operator. Use resume before restarting.');return;}
   const api=CoinbaseApi.local({allowOrders:mode==='live'}),markets=new Markets(api,c),live=mode==='live'?new LiveExecution(api,db,c):null;
-  if(live)await live.initialize();const engine=new CoinbaseEngine(db,c,markets,{live});
+  if(live)await live.initialize();const engine=new CoinbaseEngine(db,c,markets,{live,...(hypothesis?{decisionFn:decisionFor(hypothesis)}:{})});
   const cycles=opts.cycles===undefined?Infinity:Number(opts.cycles);if(cycles!==Infinity&&(!Number.isInteger(cycles)||cycles<1))throw new Error('INVALID_CYCLES');
   let stopping=false;const abort=new AbortController();const stop=()=>{stopping=true;requestStop(db,abort);};process.once('SIGINT',stop);process.once('SIGTERM',stop);
   writeFileSync(join(runtime,'worker.json'),JSON.stringify({pid:process.pid,mode,startedAt:Date.now()}));await write();

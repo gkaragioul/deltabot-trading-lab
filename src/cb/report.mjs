@@ -7,6 +7,7 @@ export function report(state,c,events,running,command,now=Date.now()){
   const lines=['# Coinbase Trading Lab','',`**${s.mode==='live'?'LIVE ACCOUNT':'PAPER — SIMULATED MONEY'}**`,'',
     `Service: **${!running?'Stopped':!fresh?'Starting or stale':s.lastError?'Running with provider errors':'Running'}** · Updated ${new Date(now).toISOString()}`,'',
     `New entries: ${safe(entryBlock(s,c,command,now)??'enabled when a signal qualifies')}.`,'',
+    ...(s.hypothesis?[`Exploratory forward experiment: **${safe(s.hypothesis)}**. This hypothesis has not qualified for live use.`,'']:[]),
     '| Measure | USDC |','| --- | ---: |',`| Strategy budget | ${c.activeUsd} |`,`| Available strategy cash | ${fmt(s.cash)} |`,
     `| Conservative strategy equity | ${fmt(equity(s))} |`,`| Closed-trade P&L | ${fmt(s.realized)} |`,`| Total commissions | ${fmt(s.fees)} |`,
     `| Change from starting strategy budget | ${fmt(Number(equity(s))-c.activeUsd)} |`,'',
