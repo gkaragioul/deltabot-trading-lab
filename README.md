@@ -1,14 +1,23 @@
 # DeltaBot Trading Lab
 
+![Illustrative concept of DeltaBot Trading Lab research interfaces](docs/illustrative-preview.png)
+
+*Illustrative concept generated for this README, not an app screenshot, account
+view, or historical trading result.*
+
 Coinbase spot-market research, paper trading and execution diagnostics with
 recorded order-book replay, the official Coinbase Python SDK and Backtesting.py.
 
-**Version 0.2.0 · Experimental · 83 Node tests + 9 Python tests**
+**Version 0.2.1 · Experimental · 83 Node tests + 9 Python tests**
 
 The default trading worker simulates orders. A manually gated live adapter exists,
 but real-money fills have not been validated. **No profitable strategy has been
 established.** The project reports losses, fees, missing data and failed hypotheses
 alongside successful software checks.
+
+This experimental software is for research and education, not financial advice.
+Its simulations and safety controls do not establish future performance or
+guarantee against financial loss.
 
 ## What is implemented
 
@@ -124,7 +133,7 @@ The earlier 14-day, 13-hypothesis study qualified no candidate. Recent external
 BTC/ETH/SOL diagnostics found one losing SOL trade; two 25-minute recorded-book
 replays found no entries. Zero trades are inconclusive. Holding cash outperformed
 the tested trading runs. See [research protocol and results](docs/COINBASE-RESEARCH.md)
-and [release notes](docs/releases/v0.2.0.md).
+and [release notes](docs/releases/v0.2.1.md).
 
 Minute-volume liquidity is a proxy. Current product selection introduces bias;
 missing data may prevent exits and inflate conservative drawdown through zero
@@ -180,6 +189,13 @@ experiment and its dependency remain in [legacy documentation](docs/SOLANA-LEGAC
 The npm `start`, `status` and `doctor` shortcuts still target that legacy engine;
 use the explicit Coinbase commands above. Legacy dependency audit findings are
 tracked separately from the Coinbase implementation.
+
+## License and visual assets
+
+The original source code and documentation are available under the
+[MIT License](LICENSE). Installed dependencies retain their own licenses;
+the generated illustrative preview is not part of the MIT-licensed software.
+See [third-party and visual notices](THIRD_PARTY_NOTICES.md).
 
 Official references: [Coinbase fees](https://help.coinbase.com/en/coinbase/trading-and-funding/advanced-trade/advanced-trade-fees),
 [Coinbase SDK](https://github.com/coinbase/coinbase-advanced-py),
