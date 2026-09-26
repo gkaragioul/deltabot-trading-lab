@@ -190,6 +190,15 @@ The npm `start`, `status` and `doctor` shortcuts still target that legacy engine
 use the explicit Coinbase commands above. Legacy dependency audit findings are
 tracked separately from the Coinbase implementation.
 
+## Disclaimer
+
+This software is provided as is, without warranty of any kind, under the
+[MIT License](LICENSE). Use it entirely at your own risk. It is not financial
+advice. Trading can lose money, and live mode places real orders on your Coinbase
+account. Past, simulated, backtested and replayed results, including those above,
+say nothing about future results. You are responsible for your API keys, every
+order the software places and any losses.
+
 ## License and visual assets
 
 The original source code and documentation are available under the
